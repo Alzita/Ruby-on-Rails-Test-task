@@ -1,0 +1,75 @@
+rails new cargo_transport_app --database=postgresql
+cd cargo_transport_app
+gem 'rest-client'
+gem 'activeadmin'
+rails generate resource Cargo first_name:string last_name:string middle_name:string phone:string email:string weight:integer length:integer width:integer height:integer origin:string destination:string
+rails db:create
+rails db:migrate
+Rails.application.routes.draw do
+  resources :cargos
+  root 'cargos#new'
+end
+class CargosController < ApplicationController
+  def new
+    @cargo = Cargo.new
+  end
+
+  def create
+    @cargo = Cargo.new(cargo_params)
+    if @cargo.save
+      @cargo.calculate_and_save_price
+      redirect_to @cargo
+    else
+      render 'new'
+    end
+  end
+
+  def show
+    @cargo = Cargo.find(params[:id])
+  end
+
+  private
+  def cargo_params
+    params.require(:cargo).permit(:first_name, :last_name, :middle_name, :phone, :email, :weight, :length, :width, :height, :origin, :destination)
+  end
+end
+class Cargo < ApplicationRecord
+  validates :first_name, :last_name, :middle_name, :phone, :email, :weight, :length, :width, :height, :origin, :destination, presence: true
+
+  def calculate_and_save_price
+    transport = CargoTransport.new(weight, length, width, height, origin, destination)
+    price_data = transport.calculate_price
+    update(price: price_data[:price], distance: price_data[:distance])
+  end
+end
+ActiveAdmin.setup do |config|
+  config.site_title = "Cargo Transport App"
+end
+rails generate active_admin:install
+rails server
+# test/models/cargo_test.rb
+require 'test_helper'
+
+class CargoTest < ActiveSupport::TestCase
+  test "should not save cargo without required fields" do
+    cargo = Cargo.new
+    assert_not cargo.save, "Saved the cargo without required fields"
+  end
+end
+
+# test/controllers/cargos_controller_test.rb
+require 'test_helper'
+
+class CargosControllerTest < ActionDispatch::IntegrationTest
+  test "should get new" do
+    get new_cargo_url
+    assert_response :success
+  end
+
+  test "should create cargo" do
+    assert_difference('Cargo.count') do
+      post cargos_url, params: { cargo: { first_name: "John", last_name: "Doe", middle_name: "Smith", phone: "1234567890", email: "john@example.com", weight: 10, length: 100, width: 50, height: 30, origin: "Origin", destination: "Destination" } }
+    end
+    assert_redirected_to cargo_url(Cargo.last)
+  end
+end
