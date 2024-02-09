@@ -1,0 +1,58 @@
+require 'rest-client'
+require 'json'
+
+class CargoTransport
+  attr_accessor :weight, :length, :width, :height, :origin, :destination
+
+  def initialize(weight, length, width, height, origin, destination)
+    @weight = weight
+    @length = length
+    @width = width
+    @height = height
+    @origin = origin
+    @destination = destination
+  end
+
+  def calculate_distance
+    response = RestClient.get "https://distancematrix.ai/maps/api/distancematrix/json?origins=#{@origin}&destinations=#{@destination}&key=YOUR_API_KEY"
+    data = JSON.parse(response.body)
+    return data["rows"][0]["elements"][0]["distance"]["value"] / 1000.0 # distance in kilometers
+  end
+
+  def calculate_price
+    volume = @length * @width * @height / 1000000.0 # volume in cubic meters
+    if volume < 1
+      price_per_km = 1
+    elsif @weight <= 10
+      price_per_km = 2
+    else
+      price_per_km = 3
+    end
+    distance = calculate_distance
+    price = distance * price_per_km
+    { weight: @weight, length: @length, width: @width, height: @height, distance: distance, price: price }
+  end
+end
+
+# Tests
+def run_tests
+  cargo1 = CargoTransport.new(5, 50, 50, 50, "Origin", "Destination")
+  cargo2 = CargoTransport.new(20, 50, 50, 50, "Origin", "Destination")
+  cargo3 = CargoTransport.new(5, 10, 10, 10, "Origin", "Destination")
+
+  result1 = cargo1.calculate_price
+  result2 = cargo2.calculate_price
+  result3 = cargo3.calculate_price
+
+  puts "Test 1:"
+  puts "Expected: #{result1}"
+  puts "Result: #{result1}"
+  puts "Test 2:"
+  puts "Expected: #{result2}"
+  puts "Result: #{result2}"
+  puts "Test 3:"
+  puts "Expected: #{result3}"
+  puts "Result: #{result3}"
+end
+
+run_tests
